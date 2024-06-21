@@ -15,18 +15,18 @@ type retorno struct {
 	body string
 }
 
-func callAPI(ctx context.Context, URL string) (string, error) {
+func callAPI(ctx context.Context, URL string, ch chan<- retorno) error {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", URL, nil)
 	if err != nil {
 		log.Panicln(err)
-		return "", err
+		return err
 	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("Erro na chamada da API %s: %v\n", URL, err)
-		return "", err
+		return err
 	}
 	defer res.Body.Close()
 
@@ -35,7 +35,11 @@ func callAPI(ctx context.Context, URL string) (string, error) {
 		panic(err)
 	}
 
-	return string(body), err
+	ch <- retorno{
+		URL:  URL,
+		body: string(body),
+	}
+	return nil
 
 }
 
@@ -60,13 +64,7 @@ func main() {
 
 	for _, URL := range arr {
 		go func() {
-			body, err := callAPI(ctx, URL)
-			if err == nil {
-				ch <- retorno{
-					URL:  URL,
-					body: body,
-				}
-			}
+			callAPI(ctx, URL, ch)
 		}()
 	}
 
